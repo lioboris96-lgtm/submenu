@@ -59,7 +59,7 @@ MalumMenu's ESP cheats are completely client-side, and thus undetectable by anti
 |------------|-------------|------|--------|
 | Crewmates | Changes the map so that it shows the position of every alive crewmate (color: cyan) | Toggle | Off |
 | Impostors | Changes the map so that it shows the position of every alive impostor (color: red) | Toggle | Off
-| Ghosts | Changes the map so that it shows the position of every ghost (color: white) | Toggle | Off |
+| Ghosts | Changes the map so that it shows the position of ghosts (color: white) | Toggle | Off |
 | Color-based | Changes the color of map icons to the color of their players | Toggle | Off |
 
 ## 🎭 Roles
@@ -146,7 +146,7 @@ Moreover, different sabotages can be enabled at the same time, and they even wor
 |------------|-------------|------|--------|
 | UseVents | Allows you to use vents even if you are not an impostor or an engineer | Toggle | Off
 | KickVents | Forcefully kicks all players from vents | Button |
-| WalkInVents | Allows you to move and interact with the game even though you are inside of a vent<br>This gives you a sort of invisibility until you disable the setting and leave the vent<br>(*Some activites such as killing will forcefully make you visible again*) | Toggle | Off
+| WalkInVents | Allows you to move and interact with the game even though you are inside of a vent<br>This gives you a sort of invisibility until you disable the setting and leave the vent<br>(*Some activites such as killing will forcefully make you visible again*) | Toggle | Off |
 
 ## 💤 Passive
 
@@ -157,6 +157,35 @@ These cheats are constantly running in the background and **cannot be disabled t
 | Free Cosmetics | Gives you access to all of the game's cosmetics for free, including:<br><br>- Hats<br>- Visors<br>- Skins<br>- Pets<br>- Nameplates<br>- Bundles<br>- Cosmicubes | Toggle | On |
 | Avoid Penalties | Removes the penalty you receive when disconnecting from games early | Toggle | On |
 | Unlock Extra Features | Unlocks many of the game's special features automatically, including:<br><br>- Freechat<br>- Friend list<br>- Custom name<br>- Online gameplay | Toggle | On |
+
+## 🤖 AI Mode
+
+MalumMenu's AI Mode uses the Groq API to provide real-time game analysis and strategic suggestions. The AI reads the game state, player roles, meeting chat, and active cheats to give you personalized advice.
+
+| Cheat | Description | Type | Default|
+|------------|-------------|------|--------|
+| Enable AI Mode | Activates the AI assistant and opens the AI chat window | Toggle | Off |
+| Auto-Analyze Game | Automatically requests AI analysis every 30 seconds during gameplay | Toggle | Off |
+| Auto-Copy Suggestions | Automatically copies AI-suggested chat messages to your clipboard so you can paste them in meetings | Toggle | Off |
+| Read Meeting Chat | Feeds meeting chat messages to the AI so it can analyze what players are saying | Toggle | Off |
+
+#### AI Chat Window
+
+The AI chat window is a separate floating window that shows your conversation with the AI. It includes:
+- **Analyze Game** button: Ask the AI to analyze the current game state
+- **Analyze Meeting** button: Ask the AI to analyze the current meeting and suggest what to say/vote
+- **Suggestion bar**: When the AI suggests a message (marked with `SAY: "..."`), it appears here with a **Copy** button
+- **Text input**: Ask the AI custom questions about the game
+- **Clear Chat**: Reset the conversation history
+
+#### Configuration
+
+| Config | Description | Default |
+|------------|-------------|--------|
+| API Key | Your Groq API key. Get one free at https://console.groq.com/keys | (empty) |
+| Model | The Groq model to use | llama-3.3-70b-versatile |
+
+Supported models: `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `mixtral-8x7b-32768`, `gemma2-9b-it`
 
 ## 📃 Config
 
@@ -172,6 +201,8 @@ You can change all of the following settings in `BepInEx/config/MalumMenu.cfg`
 | Privacy.NoTelemetry | When enabled, it will stop Among Us from collecting analytics of your games using Unity Analytics and sending them to Innersloth | Boolean | true |
 | Spoofing.Level | Sets a custom player level to display to others in online games, masking your real level<br><br>**IMPORTANT**: Only integers between 0 and 4294967295 are valid. Decimal values are not accepted | String | |
 | Spoofing.Platform | Sets a different gaming platform in online lobbies to disguise your actual platform<br><br>**IMPORTANT**: You may only use platform names from this [list](https://skeld.js.org/enums/constant.Platform.html) | String | |
+| AI.ApiKey | Your Groq API key for AI Mode. Get one free at https://console.groq.com/keys | String | (empty) |
+| AI.Model | The Groq model to use for AI analysis | String | llama-3.3-70b-versatile |
 
 ## Other relevant features of MalumMenu:
 

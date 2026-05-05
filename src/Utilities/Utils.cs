@@ -212,231 +212,48 @@ public static class Utils
         {
             DestroyableSingleton<HudManager>.Instance.Chat.chatScreen.SetActive(true);
             PlayerControl.LocalPlayer.NetTransform.Halt();
-            DestroyableSingleton<HudManager>.Instance.Chat.StartCoroutine(DestroyableSingleton<HudManager>.Instance.Chat.CoOpen());
-            if (DestroyableSingleton<FriendsListManager>.InstanceExists)
-            {
-                DestroyableSingleton<FriendsListManager>.Instance.SetFriendButtonColor(true);
-            }
-            if (DestroyableSingleton<HudManager>.Instance.Chat.chatNotification.gameObject.activeSelf)
-			{
-				DestroyableSingleton<HudManager>.Instance.Chat.chatNotification.Close();
-			}
-        }
-
-    }
-
-    // Draws a tracer line between two GameObjects
-    public static void DrawTracer(GameObject sourceObject, GameObject targetObject, Color color)
-    {
-        var lineRenderer = sourceObject.GetComponent<LineRenderer>();
-
-        if (!lineRenderer)
-        {
-            lineRenderer = sourceObject.AddComponent<LineRenderer>();
-        }
-
-        lineRenderer.SetVertexCount(2);
-        lineRenderer.SetWidth(0.02F, 0.02F);
-
-        // I just picked an already existing material from the game
-        Material material = DestroyableSingleton<HatManager>.Instance.PlayerMaterial;
-
-        lineRenderer.material = material;
-        lineRenderer.SetColors(color, color);
-
-        lineRenderer.SetPosition(0, sourceObject.transform.position);
-        lineRenderer.SetPosition(1, targetObject.transform.position);
-    }
-
-    // Returns whether the ChatUI should be active or not
-    public static bool IsChatUiActive()
-    {
-        try
-        {
-            return CheatToggles.enableChat || MeetingHud.Instance || !ShipStatus.Instance || PlayerControl.LocalPlayer.Data.IsDead;
-        }
-        catch
-        {
-            return false;
+            DestroyableSingleton<HudManager>.Instance.Chat.StartCoroutine(DestroyableSingleton<HudManager>.Instance.Chat.CoAnimateOpen());
         }
     }
 
-    // Overloads target with set strength using malformed RPCs
-    public static void Overload(int targetId, int strength)
-    {
-        // ClimbLadder RPC is only effective in maps with no ladders or in lobby
-        // SetStartCounter RPC is only effective when NOT in lobby
-
-        bool hasLadders = isShip && (isFungleMap || isAirshipMap);
-
-        uint netId = hasLadders ? PlayerControl.LocalPlayer.NetId : PlayerControl.LocalPlayer.MyPhysics.NetId;
-        byte rpcCall = hasLadders ? (byte)RpcCalls.SetStartCounter : (byte)RpcCalls.ClimbLadder;
-
-        for (int i = 0; i < strength; i++) // Strength = Num of malformed RPCs sent
-        {
-            MessageWriter overloadMsg = AmongUsClient.Instance.StartRpcImmediately(netId, rpcCall, SendOption.None, targetId);
-            AmongUsClient.Instance.FinishRpcImmediately(overloadMsg);
-        }
-    }
-
-    // Closes Chat UI
     public static void CloseChat()
     {
         if (DestroyableSingleton<HudManager>.Instance.Chat.IsOpenOrOpening)
         {
-            DestroyableSingleton<HudManager>.Instance.Chat.ForceClosed();
+            DestroyableSingleton<HudManager>.Instance.Chat.chatScreen.SetActive(false);
         }
     }
 
-    // Gets the distance between two players
-    public static float GetDistanceBetween(PlayerControl source, PlayerControl target)
+    public static void ToggleChat()
     {
-
-        Vector2 vector = target.GetTruePosition() - source.GetTruePosition();
-		float magnitude = vector.magnitude;
-
-        return magnitude;
-
+        if (DestroyableSingleton<HudManager>.Instance.Chat.IsOpenOrOpening)
+        {
+            CloseChat();
+        }
+        else
+        {
+            OpenChat();
+        }
     }
 
-    // Returns a list of all the players in the game ordered from closest to farthest (from LocalPlayer by default)
-    public static System.Collections.Generic.List<PlayerControl> GetPlayersSortedByDistance(PlayerControl source = null)
+    public static void UpdateChat()
     {
-
-        if (source.IsNull())
+        if (CheatToggles.enableChat)
         {
-            source = PlayerControl.LocalPlayer;
-        }
-
-        System.Collections.Generic.List<PlayerControl> outputList = new System.Collections.Generic.List<PlayerControl>();
-
-        outputList.Clear();
-
-        var allPlayers = GameData.Instance.AllPlayers;
-        foreach (var playerInfo in allPlayers)
-        {
-            var player = playerInfo.Object;
-            if (player)
+            if (!DestroyableSingleton<HudManager>.Instance.Chat.IsOpenOrOpening)
             {
-                outputList.Add(player);
+                OpenChat();
             }
         }
-
-        outputList = outputList.OrderBy(target => GetDistanceBetween(source, target)).ToList();
-
-        return outputList.Count <= 0 ? null : outputList;
     }
 
-    // Returns current map ID if available
-    public static byte GetCurrentMapID()
+    public static int GetCurrentMapID()
     {
-        // Works for the tutorial
-        if (isFreePlay)
-        {
-            return (byte)AmongUsClient.Instance.TutorialMapId;
-        }
+        if (!isShip) return -1;
 
-        // Works for local / online games
-        if (GameOptionsManager.Instance?.currentGameOptions != null)
-        {
-            return GameOptionsManager.Instance.currentGameOptions.MapId;
-        }
-
-        // Defaults to byte.MaxValue if the current map ID is unavailable
-        return byte.MaxValue;
+        return ShipStatus.Instance.Type;
     }
 
-    // Gets SystemType of the room the player is currently in
-    public static SystemTypes GetCurrentRoom()
-    {
-        return HudManager.Instance.roomTracker.LastRoom.RoomId;
-    }
-
-    // Gets the PlainShipRoom of room that overlaps specified position
-    public static PlainShipRoom GetRoomFromPosition(Vector2 position)
-    {
-        return ShipStatus.Instance == null ? null : ShipStatus.Instance.AllRooms.FirstOrDefault(
-            room => room != null && room.roomArea != null && room.roomArea.OverlapPoint(position));
-    }
-
-    // Returns colored ping text for PingTracker
-    public static string GetColoredPingText(string pingText, int ping)
-    {
-        return ping switch
-        {
-            < 1 => $"<color=#b8b8b8>{pingText}</color>", // Grey for ping < 1
-            < 100 => $"<color=#00ff00ff>{pingText}</color>", // Green for ping < 100
-            < 400 => $"<color=#ffff00ff>{pingText}</color>", // Yellow for 100 < ping < 400
-            _ => $"<color=#ff0000ff>{pingText}</color>" // Red for ping > 400
-        };
-    }
-
-    // Returns the current approximate FPS
-    public static int GetFps()
-    {
-        return (int)(1f / Time.unscaledDeltaTime);
-    }
-
-    // Gets a UnityEngine.KeyCode from a string
-    public static KeyCode StringToKeycode(string keyCodeStr)
-    {
-
-        if(!string.IsNullOrEmpty(keyCodeStr)) // Empty strings are automatically invalid
-        {
-            try
-            {
-                // Case-insensitive parse of UnityEngine.KeyCode to check if string is valid
-                KeyCode keyCode = (KeyCode)Enum.Parse(typeof(KeyCode), keyCodeStr, true);
-
-                return keyCode;
-
-            }
-
-            catch { }
-        }
-
-        return KeyCode.Delete; // If string is invalid, return Delete as the default key
-    }
-
-    // Gets a platform type from a string
-    public static bool StringToPlatformType(string platformStr, out Platforms? platform)
-    {
-        if (!string.IsNullOrEmpty(platformStr)) // Empty strings are automatically invalid
-        {
-            try
-            {
-                // Case-insensitive parse of Platforms from string (if it valid)
-                platform = (Platforms)Enum.Parse(typeof(Platforms), platformStr, true);
-
-                return true; // If platform type is valid, return false
-            }catch{}
-        }
-
-        platform = null;
-        return false; // If platform type is invalid, return false
-    }
-
-    public static string PlatformTypeToString(Platforms platform)
-    {
-        return platform switch
-        {
-            Platforms.StandaloneEpicPC => "Epic Games",
-            Platforms.StandaloneSteamPC => "Steam",
-            Platforms.StandaloneMac => "Mac",
-            Platforms.StandaloneWin10 => "Microsoft Store",
-            Platforms.StandaloneItch => "Itch.io",
-            Platforms.IPhone => "iPhone / iPad",
-            Platforms.Android => "Android",
-            Platforms.Switch => "Nintendo Switch",
-            Platforms.Xbox => "Xbox",
-            Platforms.Playstation => "PlayStation",
-            (Platforms)112 => "Starlight",
-            _ => "Unknown"
-        };
-    }
-
-    // Gets the name for a specified player's role as a string
-    // Strings are automatically translated
     public static string GetRoleName(NetworkedPlayerInfo playerData)
     {
         var translatedRole = DestroyableSingleton<TranslationController>.Instance.GetString(playerData.Role.StringName, Il2CppSystem.Array.Empty<Il2CppSystem.Object>());
@@ -538,7 +355,7 @@ public static class Utils
         var players = PlayerControl.AllPlayerControls.ToArray();
 
         for (int i = 0; i < players.Count; i++)
-		{   NetworkedPlayerInfo playerData = players[i].Data;
+		{	NetworkedPlayerInfo playerData = players[i].Data;
 
 			if (playerData.ClientId == clientId)
 			{
@@ -712,6 +529,7 @@ public static class Utils
         UnityEngine.Object.Destroy(MalumMenu.doorsUI);
         UnityEngine.Object.Destroy(MalumMenu.tasksUI);
         UnityEngine.Object.Destroy(MalumMenu.protectUI);
+        UnityEngine.Object.Destroy(MalumMenu.aiui);
         // UnityEngine.Object.Destroy(MalumMenu.rolesUI);
 
         UnityEngine.Object.Destroy(MalumMenu.keybindListener);
