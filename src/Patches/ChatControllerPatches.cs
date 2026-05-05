@@ -12,6 +12,13 @@ public static class ChatController_AddChat
 	// Basically does what the original method did with the required modifications
 	public static bool Prefix(PlayerControl sourcePlayer, string chatText, bool censor, ChatController __instance)
     {
+		// Capture meeting chat for AI mode
+		if (CheatToggles.aiMode && CheatToggles.aiReadChat && sourcePlayer != null)
+		{
+			string senderName = sourcePlayer.Data?.PlayerName ?? "Unknown";
+			AIHandler.AddMeetingChat(senderName, chatText);
+		}
+
 		// Simply run original method if seeGhosts is disabled or LocalPlayer already dead
         if (!CheatToggles.seeGhosts || PlayerControl.LocalPlayer.Data.IsDead) return true;
 

@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using UnityEngine.SceneManagement;
 using System;
@@ -26,6 +26,7 @@ public partial class MalumMenu : BasePlugin
     public static DoorsUI doorsUI;
     public static TasksUI tasksUI;
     public static ProtectUI protectUI;
+    public static AIUI aiui;
     public static KeybindListener keybindListener;
 
     public static string malumVersion = "3.1.0";
@@ -51,6 +52,10 @@ public partial class MalumMenu : BasePlugin
     public static ConfigEntry<int> defaultStrength;
     public static ConfigEntry<float> defaultCooldown;
     public static ConfigEntry<int> killSwitchLvl;
+
+    // AI Mode config entries
+    public static ConfigEntry<string> aiApiKey;
+    public static ConfigEntry<string> aiModel;
 
     public override void Load()
     {
@@ -161,9 +166,20 @@ public partial class MalumMenu : BasePlugin
                                 "DefaultKillSwitchLevel",
                                 1,
                                 new ConfigDescription(
-                                    "Default level used by kill switch. Each level adds 500 ms to the max allowed ping before overload stops. Helps avoid lagging / disconnects. IMPORTANT: Only goes from level 1 (500 ms) to 6 (3000 ms)",
+                                    "Default level used by kill switch. Each level adds 500 ms to the max allowed ping before overload stops. Helps avoid lagging / disconnects. IMPORTANT: Only goes from level 1 (500 ms) to level 6 (3000 ms)",
                                     new AcceptableValueRange<int>(1, 6)
                                 ));
+
+        // AI Mode config settings
+        aiApiKey = Config.Bind("MalumMenu.AI",
+                                "ApiKey",
+                                "",
+                                "Your Groq API key for AI Mode. Get one free at https://console.groq.com/keys");
+
+        aiModel = Config.Bind("MalumMenu.AI",
+                                "Model",
+                                "llama-3.3-70b-versatile",
+                                "The Groq model to use. Options: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768, gemma2-9b-it");
 
         // Enabled by default
         CheatToggles.unlockFeatures = true;
@@ -189,6 +205,7 @@ public partial class MalumMenu : BasePlugin
         doorsUI = AddComponent<DoorsUI>();
         tasksUI = AddComponent<TasksUI>();
         protectUI = AddComponent<ProtectUI>();
+        aiui = AddComponent<AIUI>();
         // rolesUI = AddComponent<RolesUI>();
 
         // Components

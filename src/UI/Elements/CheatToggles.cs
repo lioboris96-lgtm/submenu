@@ -168,6 +168,12 @@ public struct CheatToggles
     public static bool stealthMode;
     public static bool panicMode;
 
+    // AI Mode
+    public static bool aiMode;
+    public static bool aiAutoAnalyze;
+    public static bool aiAutoClipboard;
+    public static bool aiReadChat;
+
     // Config
     public static bool reloadConfig;
     public static bool openConfig;
