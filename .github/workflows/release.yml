@@ -32,7 +32,7 @@ jobs:
       - name: Download BepInEx IL2CPP Distribution
         shell: pwsh
         run: |
-          # Download BepInEx IL2CPP bleeding edge build matching the project's NuGet version
+          # Download BepInEx IL2CPP bleeding edge build matching project's NuGet version
           $beVersion = "6.0.0-be.735"
           $beUrl = "https://builds.bepinex.dev/projects/1/b/BepInEx-Unity.IL2CPP-win-x64-$beVersion.zip"
           
@@ -71,7 +71,8 @@ jobs:
           # Copy all BepInEx distribution files
           Get-ChildItem -Path bepinex_dist -Recurse | ForEach-Object {
             $srcPath = $_.FullName
-            $relPath = $srcPath.Substring((Resolve-Path bepinex_dist).Path.Length).TrimStart('\\', '/')
+            $basePath = (Resolve-Path bepinex_dist).Path
+            $relPath = if ($srcPath.StartsWith($basePath)) { $srcPath.Substring($basePath.Length).TrimStart('\', '/') } else { Split-Path -Leaf $srcPath }
             $destPath = Join-Path (Resolve-Path $releaseDir).Path $relPath
             
             if ($_.PSIsContainer) {
@@ -105,7 +106,7 @@ jobs:
           
           # Ensure patchers directory exists (even if empty)
           New-Item -ItemType Directory -Force -Path $patchersDir | Out-Null
-          # Create a .gitkeep in patchers so the empty folder is preserved in the zip
+          # Create a .gitkeep in patchers so empty folder is preserved in zip
           New-Item -ItemType File -Force -Path "$patchersDir/.gitkeep" | Out-Null
           
           # Create zip
@@ -115,9 +116,10 @@ jobs:
           # List contents for verification
           Write-Host "=== Release package contents ==="
           Get-ChildItem -Path $releaseDir -Recurse | ForEach-Object {
-            $rel = $_.FullName.Substring((Resolve-Path $releaseDir).Path.Length).TrimStart('\\', '/')
+            $basePath = (Resolve-Path $releaseDir).Path
+            $relPath = if ($_.FullName.StartsWith($basePath)) { $_.FullName.Substring($basePath.Length).TrimStart('\', '/') } else { Split-Path -Leaf $_.FullName }
             if (!$_.PSIsContainer) {
-              Write-Host "  $rel ($($_.Length) bytes)"
+              Write-Host "  $relPath ($($_.Length) bytes)"
             }
           }
 
