@@ -45,47 +45,62 @@ public class AIUI : MonoBehaviour
 
     private void InitStyles()
     {
-        _messageStyle ??= new GUIStyle(GUI.skin.label)
+        if (_messageStyle == null)
         {
-            fontSize = 13,
-            wordWrap = true,
-            alignment = TextAnchor.UpperLeft,
-            richText = true
-        };
+            _messageStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                wordWrap = true,
+                alignment = TextAnchor.UpperLeft,
+                richText = true
+            };
+        }
 
-        _userMessageStyle ??= new GUIStyle(GUI.skin.box)
+        if (_userMessageStyle == null)
         {
-            fontSize = 13,
-            wordWrap = true,
-            alignment = TextAnchor.UpperLeft,
-            normal = { textColor = Color.cyan, background = MakeTex(1, 1, new Color(0f, 0.1f, 0.2f, 0.8f)) },
-            padding = new RectOffset(8, 8, 6, 6)
-        };
+            _userMessageStyle = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 13,
+                wordWrap = true,
+                alignment = TextAnchor.UpperLeft,
+                normal = { textColor = Color.cyan, background = MakeTex(1, 1, new Color(0f, 0.1f, 0.2f, 0.8f)) },
+                padding = new RectOffset(8, 8, 6, 6)
+            };
+        }
 
-        _aiMessageStyle ??= new GUIStyle(GUI.skin.box)
+        if (_aiMessageStyle == null)
         {
-            fontSize = 13,
-            wordWrap = true,
-            alignment = TextAnchor.UpperLeft,
-            normal = { textColor = Color.green, background = MakeTex(1, 1, new Color(0f, 0.15f, 0f, 0.8f)) },
-            padding = new RectOffset(8, 8, 6, 6)
-        };
+            _aiMessageStyle = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 13,
+                wordWrap = true,
+                alignment = TextAnchor.UpperLeft,
+                normal = { textColor = Color.green, background = MakeTex(1, 1, new Color(0f, 0.15f, 0f, 0.8f)) },
+                padding = new RectOffset(8, 8, 6, 6)
+            };
+        }
 
-        _systemStyle ??= new GUIStyle(GUI.skin.label)
+        if (_systemStyle == null)
         {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleCenter,
-            normal = { textColor = Color.yellow }
-        };
+            _systemStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.yellow }
+            };
+        }
 
-        _suggestionStyle ??= new GUIStyle(GUI.skin.box)
+        if (_suggestionStyle == null)
         {
-            fontSize = 14,
-            wordWrap = true,
-            alignment = TextAnchor.UpperLeft,
-            normal = { textColor = new Color(1f, 0.6f, 0f), background = MakeTex(1, 1, new Color(0.2f, 0.1f, 0f, 0.8f)) },
-            padding = new RectOffset(8, 8, 6, 6)
-        };
+            _suggestionStyle = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 14,
+                wordWrap = true,
+                alignment = TextAnchor.UpperLeft,
+                normal = { textColor = new Color(1f, 0.6f, 0f), background = MakeTex(1, 1, new Color(0.2f, 0.1f, 0f, 0.8f)) },
+                padding = new RectOffset(8, 8, 6, 6)
+            };
+        }
     }
 
     private static Texture2D MakeTex(int w, int h, Color col)
