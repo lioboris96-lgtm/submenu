@@ -35,7 +35,7 @@ namespace MalumMenuInjector
         private void InitializeComponent()
         {
             this.Text = "MalumMenu Injector v3.2.0";
-            this.Size = new System.Drawing.Size(600, 400);
+            this.Size = new System.Drawing.Size(600, 450);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -101,7 +101,7 @@ namespace MalumMenuInjector
             {
                 Text = "Ready to inject MalumMenu",
                 Location = new System.Drawing.Point(20, 180),
-                Size = new System.Drawing.Size(550, 60),
+                Size = new System.Drawing.Size(550, 80),
                 BackColor = System.Drawing.Color.FromArgb(240, 240, 240),
                 BorderStyle = BorderStyle.FixedSingle
             };
@@ -109,7 +109,7 @@ namespace MalumMenuInjector
             // Progress bar
             progressBar = new ProgressBar
             {
-                Location = new System.Drawing.Point(20, 260),
+                Location = new System.Drawing.Point(20, 280),
                 Size = new System.Drawing.Size(550, 23),
                 Style = ProgressBarStyle.Continuous
             };
@@ -152,64 +152,87 @@ namespace MalumMenuInjector
 
         private void LoadSettings()
         {
-            var settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MalumMenu", "settings.ini");
-            if (File.Exists(settingsPath))
+            try
             {
-                var lines = File.ReadAllLines(settingsPath);
-                foreach (var line in lines)
+                var settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MalumMenu", "settings.ini");
+                if (File.Exists(settingsPath))
                 {
-                    if (line.StartsWith("GamePath="))
+                    var lines = File.ReadAllLines(settingsPath);
+                    foreach (var line in lines)
                     {
-                        txtGamePath.Text = line.Substring(9);
+                        if (line.StartsWith("GamePath="))
+                        {
+                            var path = line.Substring(9);
+                            if (Directory.Exists(path))
+                            {
+                                txtGamePath.Text = path;
+                                return;
+                            }
+                        }
                     }
                 }
+            }
+            catch
+            {
+                // If settings fail, try default path
+                txtGamePath.Text = GetDefaultGamePath();
             }
         }
 
         private void SaveSettings()
         {
-            var settingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MalumMenu");
-            Directory.CreateDirectory(settingsDir);
-            var settingsPath = Path.Combine(settingsDir, "settings.ini");
-            File.WriteAllText(settingsPath, $"GamePath={txtGamePath.Text}");
+            try
+            {
+                var settingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MalumMenu");
+                Directory.CreateDirectory(settingsDir);
+                var settingsPath = Path.Combine(settingsDir, "settings.ini");
+                File.WriteAllText(settingsPath, $"GamePath={txtGamePath.Text}");
+            }
+            catch
+            {
+                MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private string GetDefaultGamePath()
         {
-            // Try Steam
-            var steamPath = (string)Microsoft.Win32.Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Valve\Steam", "InstallPath");
-            if (!string.IsNullOrEmpty(steamPath))
-            {
-                steamPath = (string)Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam", "InstallPath");
-            }
+            string[] possiblePaths = {
+                // Steam paths
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam", "steamapps", "common", "Among Us"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "steamapps", "common", "Among Us"),
+                
+                // Epic Games
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Epic Games", "Among Us"),
+                
+                // Microsoft Store
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "SteamApps", "content", "app", "945360", "AC"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Packages", "945360", "AC", "UserLocalCache"),
+                
+                // Common user locations
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Among Us"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Among Us")
+            };
 
-            if (!string.IsNullOrEmpty(steamPath))
+            foreach (var path in possiblePaths)
             {
-                var amongUsPath = Path.Combine(steamPath, "steamapps", "common", "Among Us");
-                if (Directory.Exists(amongUsPath))
+                if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
                 {
-                    return amongUsPath;
+                    // Look for Among Us executable to confirm
+                    var exePaths = new[] { "Among Us.exe", "Among Us.exe" };
+                    foreach (var exePath in exePaths)
+                    {
+                        if (File.Exists(Path.Combine(path, exePath)))
+                        {
+                            return path;
+                        }
+                    }
                 }
-            }
-
-            // Try Epic Games
-            var epicPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Epic Games", "Among Us");
-            if (Directory.Exists(epicPath))
-            {
-                return epicPath;
-            }
-
-            // Try Microsoft Store
-            var msStorePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "SteamApps", "content", "app", "945360", "AC");
-            if (Directory.Exists(msStorePath))
-            {
-                return msStorePath;
             }
 
             return "";
         }
 
-        private async void BtnBrowse_Click(object sender, EventArgs e)
+        private void BtnBrowse_Click(object sender, EventArgs e)
         {
             using var folderDialog = new FolderBrowserDialog();
             folderDialog.Description = "Select Among Us Game Folder";
@@ -223,9 +246,15 @@ namespace MalumMenuInjector
 
         private async void BtnDownload_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(txtGamePath.Text) || !Directory.Exists(txtGamePath.Text))
+            if (string.IsNullOrEmpty(txtGamePath.Text))
             {
                 MessageBox.Show("Please select a valid Among Us game folder.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!Directory.Exists(txtGamePath.Text))
+            {
+                MessageBox.Show($"Game folder does not exist:\n{txtGamePath.Text}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -257,12 +286,26 @@ namespace MalumMenuInjector
                 // Extract to game folder
                 await Task.Run(() =>
                 {
-                    System.IO.Compression.ZipFile.ExtractToDirectory(tempPath, txtGamePath.Text, true);
+                    try
+                    {
+                        System.IO.Compression.ZipFile.ExtractToDirectory(tempPath, txtGamePath.Text, true);
+                    }
+                    catch
+                    {
+                        // Try alternative extraction method
+                        var extractPath = Path.Combine(Path.GetTempPath(), "extract");
+                        System.IO.Compression.ZipFile.ExtractToDirectory(tempPath, extractPath);
+                        
+                        // Copy files manually
+                        CopyDirectory(extractPath, txtGamePath.Text);
+                        Directory.Delete(extractPath, true);
+                    }
+                    
                     File.Delete(tempPath);
                 });
 
                 progressBar.Value = 100;
-                lblStatus.Text = "MalumMenu v3.2.0 installed successfully!\n\nYou can now launch Among Us with the mod.";
+                lblStatus.Text = "MalumMenu v3.2.0 installed successfully!\n\nYou can now launch Among Us with the mod.\n\nPress DELETE in-game to open the menu.";
                 lblStatus.ForeColor = System.Drawing.Color.Green;
 
                 SaveSettings();
@@ -281,7 +324,7 @@ namespace MalumMenuInjector
 
         private void BtnInject_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(txtGamePath.Text) || !Directory.Exists(txtGamePath.Text))
+            if (string.IsNullOrEmpty(txtGamePath.Text))
             {
                 MessageBox.Show("Please select a valid Among Us game folder.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -361,12 +404,35 @@ namespace MalumMenuInjector
 
         private void CreateDoorstopConfig(string configPath)
         {
-            var config = @"[General]
+            try
+            {
+                var config = @"[General]
 enabled = true
 target_assembly = BepInEx\core\BepInEx.Unity.IL2CPP.dll
 coreclr_path = dotnet\coreclr.dll
 ";
-            File.WriteAllText(configPath, config);
+                File.WriteAllText(configPath, config);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to create doorstop config: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void CopyDirectory(string sourceDir, string destDir)
+        {
+            foreach (var dir in Directory.GetDirectories(sourceDir))
+            {
+                var destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
+                Directory.CreateDirectory(destSubDir);
+                CopyDirectory(dir, destSubDir);
+            }
+
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                var destFile = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
         }
     }
 
