@@ -24,12 +24,10 @@ public static class ChatController_AddChat
 
         if (!sourcePlayer || !PlayerControl.LocalPlayer) return true;
 
-		NetworkedPlayerInfo data = PlayerControl.LocalPlayer.Data;
-		NetworkedPlayerInfo data2 = sourcePlayer.Data;
+        NetworkedPlayerInfo data = sourcePlayer.Data;
+        if (data == null) return true;
 
-		if (data2 == null || data == null) return true; // Remove isDead check for LocalPlayer
-
-		ChatBubble pooledBubble = __instance.GetPooledBubble();
+        ChatBubble pooledBubble = __instance.GetPooledBubble();
 
 		try
 		{
@@ -45,12 +43,7 @@ public static class ChatController_AddChat
 				pooledBubble.SetLeft();
 			}
 			bool didVote = MeetingHud.Instance && MeetingHud.Instance.DidVote(sourcePlayer.PlayerId);
-			pooledBubble.SetCosmetics(data2);
-			__instance.SetChatBubbleName(pooledBubble, data2, data2.IsDead, didVote, PlayerNameColor.Get(data2), null);
-			if (censor && AmongUs.Data.DataManager.Settings.Multiplayer.CensorChat)
-			{
-				chatText = BlockedWords.CensorWords(chatText, false);
-			}
+			pooledBubble.SetCosmetics(data, didVote);
 			pooledBubble.SetText(chatText);
 			pooledBubble.AlignChildren();
 			__instance.AlignAllBubbles();
@@ -70,7 +63,7 @@ public static class ChatController_AddChat
 			__instance.chatBubblePool.Reclaim(pooledBubble);
 		}
 
-        return false; // Skips the original method completly
+        return false; // Skips original method completly
     }
 }
 
@@ -81,7 +74,7 @@ public static class ChatController_Update
     public static void Postfix(ChatController __instance)
     {
         //__instance.freeChatField.textArea.allowAllCharacters = CheatToggles.chatJailbreak; // Not really used by the game's code, but I include it anyway
-        //__instance.freeChatField.textArea.AllowSymbols = true; // Allow sending certain symbols
+        //__instance.freeChatField.textArea.AllowSymbols = CheatToggles.chatJailbreak; // Allow sending certain symbols
         //__instance.freeChatField.textArea.AllowEmail = CheatToggles.chatJailbreak; // Allow sending email addresses when chatJailbreak is enabled
         //__instance.freeChatField.textArea.AllowPaste = CheatToggles.chatJailbreak; // Allow pasting from clipboard in chat when chatJailbreak is enabled
 
@@ -136,7 +129,7 @@ public static class ChatController_SendFreeChat
     private static string CensorUrlsAndEmails(string text)
     {
         // Regular expression pattern to match URLs and email addresses
-        string pattern = @"(http[s]?://)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(/[\w-./?%&=]*)?|([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)";
+        string pattern = @"(http[s]?://)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6})+(/[\w-./?]*\w[-./?]*)?|([a-zA-Z0-9-_.+-]+@[a-zA-Z0-9-_.-]+\.[a-zA-Z]{2,6})";
         Regex regex = new Regex(pattern);
 
         // Censor periods in each match
