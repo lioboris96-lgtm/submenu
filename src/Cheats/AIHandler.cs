@@ -1,9 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
-using System.Net;
 using System.IO;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using AmongUs.GameOptions;
 
@@ -60,7 +61,7 @@ public static class AIHandler
     private static string BuildSystemPrompt()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("You are an AI assistant embedded in MalumMenu, a cheat mod for Among Us. Your job is to analyze the game state and help the player win.");
+        sb.AppendLine("You are an AI assistant embedded in MalumMenu, a cheat mod for Among Us. Your job is to analyze game state and help the player win.");
         sb.AppendLine();
         sb.AppendLine("Rules:");
         sb.AppendLine("- Be concise. Keep responses under 200 words unless asked for detail.");
@@ -142,7 +143,7 @@ public static class AIHandler
                 }
             }
 
-            // Game options
+            // Game options (only include available properties)
             if (GameOptionsManager.Instance.CurrentGameOptions != null)
             {
                 var opts = GameOptionsManager.Instance.CurrentGameOptions;
@@ -151,9 +152,7 @@ public static class AIHandler
                 sb.AppendLine($"Kill Cooldown: {opts.KillCooldown}");
                 sb.AppendLine($"Emergency Cooldown: {opts.EmergencyCooldown}");
                 sb.AppendLine($"# Impostors: {opts.NumImpostors}");
-                sb.AppendLine($"# Common Tasks: {opts.NumCommonTasks}");
-                sb.AppendLine($"# Long Tasks: {opts.NumLongTasks}");
-                sb.AppendLine($"# Short Tasks: {opts.NumShortTasks}");
+                // Skip task counts as they don't exist in this version
             }
 
             // Sabotage state
@@ -261,71 +260,48 @@ public static class AIHandler
 
         string payload = $"{{\"model\":\"{model}\",\"messages\":[{messagesArray}],\"max_tokens\":512,\"temperature\":0.7}}";
 
-        byte[] body = Encoding.UTF8.GetBytes(payload);
-
-        var request = (HttpWebRequest)WebRequest.Create(GROQ_API_URL);
-        request.Method = "POST";
-        request.ContentType = "application/json";
-        request.Headers.Add("Authorization", $"Bearer {apiKey}");
-        request.ContentLength = body.Length;
-        request.Timeout = 30000; // 30 second timeout
+        using var client = new HttpClient()
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
 
         try
         {
-            using (var stream = request.GetRequestStream())
-            {
-                stream.Write(body, 0, body.Length);
-            }
+            var response = client.PostAsync(GROQ_API_URL, new StringContent(payload, Encoding.UTF8, "application/json")).Result;
+            response.EnsureSuccessStatusCode();
+            
+            string responseText = response.Content.ReadAsStringAsync().Result;
+            string aiContent = ParseGroqResponse(responseText);
 
-            using (var response = request.GetResponse())
-            using (var reader = new StreamReader(response.GetResponseStream()))
+            if (!string.IsNullOrEmpty(aiContent))
             {
-                string responseText = reader.ReadToEnd();
-                string aiContent = ParseGroqResponse(responseText);
+                lastResponse = aiContent;
+                conversationHistory.Add(new ChatMessage("assistant", aiContent));
+                statusMessage = "AI Mode: Ready";
 
-                if (!string.IsNullOrEmpty(aiContent))
+                // Extract SAY: suggestions for clipboard
+                string suggestion = ExtractSuggestion(aiContent);
+                if (!string.IsNullOrEmpty(suggestion))
                 {
-                    lastResponse = aiContent;
-                    conversationHistory.Add(new ChatMessage("assistant", aiContent));
-                    statusMessage = "AI Mode: Ready";
-
-                    // Extract SAY: suggestions for clipboard
-                    string suggestion = ExtractSuggestion(aiContent);
-                    if (!string.IsNullOrEmpty(suggestion))
+                    lastSuggestion = suggestion;
+                    if (CheatToggles.aiAutoClipboard)
                     {
-                        lastSuggestion = suggestion;
-                        if (CheatToggles.aiAutoClipboard)
-                        {
-                            GUIUtility.systemCopyBuffer = suggestion;
-                        }
+                        GUIUtility.systemCopyBuffer = suggestion;
                     }
                 }
-                else
-                {
-                    lastResponse = "(No response from AI)";
-                    statusMessage = "AI Mode: Empty response";
-                }
             }
-        }
-        catch (WebException ex)
-        {
-            string errorMsg = ex.Message;
-            if (ex.Response != null)
+            else
             {
-                using (var errReader = new StreamReader(ex.Response.GetResponseStream()))
-                {
-                    errorMsg = errReader.ReadToEnd();
-                }
+                lastResponse = "(No response from AI)";
+                statusMessage = "AI Mode: Empty response";
             }
-            lastResponse = $"API Error: {errorMsg}";
-            statusMessage = "AI Mode: API Error";
-            MalumMenu.Log.LogWarning($"AI Groq API error: {errorMsg}");
         }
         catch (Exception ex)
         {
-            lastResponse = $"Error: {ex.Message}";
-            statusMessage = "AI Mode: Error";
-            MalumMenu.Log.LogWarning($"AI Handler error: {ex.Message}");
+            string errorMsg = ex.Message;
+            lastResponse = $"API Error: {errorMsg}";
+            statusMessage = "AI Mode: API Error";
+            MalumMenu.Log.LogWarning($"AI Groq API error: {errorMsg}");
         }
         finally
         {
@@ -369,7 +345,7 @@ public static class AIHandler
         {
             // Simple JSON parsing without dependency - find "content" field in choices
             // Format: {"choices":[{"message":{"content":"..."}}]}
-            int choicesIdx = jsonResponse.IndexOf("\"choices\");");
+            int choicesIdx = jsonResponse.IndexOf("\"choices\"");
             if (choicesIdx < 0) return null;
 
             int contentIdx = jsonResponse.IndexOf("\"content\"", choicesIdx);
@@ -383,7 +359,7 @@ public static class AIHandler
             int openQuote = jsonResponse.IndexOf('"', colonIdx + 1);
             if (openQuote < 0) return null;
 
-            // Find closing quote (handle escaped quotes)
+            // Find the closing quote (handle escaped quotes)
             int i = openQuote + 1;
             while (i < jsonResponse.Length)
             {
