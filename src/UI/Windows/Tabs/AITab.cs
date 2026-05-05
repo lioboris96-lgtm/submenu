@@ -9,6 +9,7 @@ public class AITab : ITab
     private static string _apiKeyInput = "";
     private static string _modelInput = "";
     private static bool _apiKeyVisible = false;
+    private static GUIStyle _labelHintStyle;
 
     public void Draw()
     {
@@ -86,10 +87,9 @@ public class AITab : ITab
         }
         GUILayout.EndHorizontal();
 
-        GUILayout.Label("Models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768, gemma2-9b-it", _labelHintStyle ?? new GUIStyle(GUI.skin.label) { fontSize = 11, normal = { textColor = Color.gray } });
+        _labelHintStyle = new GUIStyle(GUI.skin.label) { fontSize = 11, normal = { textColor = Color.gray } };
+        GUILayout.Label("Models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768, gemma2-9b-it", _labelHintStyle);
     }
-
-    private GUIStyle _labelHintStyle;
 
     private void DrawFeatures()
     {
