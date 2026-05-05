@@ -1,0 +1,158 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v3.2.0)'
+        required: true
+        default: 'v3.2.0'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 6.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore src/MalumMenu.csproj
+
+      - name: Build
+        run: dotnet build src/MalumMenu.csproj -c Release
+
+      - name: Download BepInEx IL2CPP Distribution
+        shell: pwsh
+        run: |
+          # Download BepInEx IL2CPP bleeding edge build matching the project's NuGet version
+          $beVersion = "6.0.0-be.735"
+          $beUrl = "https://builds.bepinex.dev/projects/1/b/BepInEx-Unity.IL2CPP-win-x64-$beVersion.zip"
+          
+          Write-Host "Downloading BepInEx IL2CPP $beVersion..."
+          try {
+            Invoke-WebRequest -Uri $beUrl -OutFile bepinex.zip -ErrorAction Stop
+            Write-Host "Downloaded BE build successfully"
+          } catch {
+            Write-Host "BE build not found at $beUrl, trying stable release..."
+            $stableUrl = "https://github.com/BepInEx/BepInEx/releases/download/v6.0.0-pre.2/BepInEx_UnityIL2CPP_x64_6.0.0-pre.2.zip"
+            Invoke-WebRequest -Uri $stableUrl -OutFile bepinex.zip
+            Write-Host "Downloaded stable build"
+          }
+          
+          Expand-Archive -Path bepinex.zip -DestinationPath bepinex_dist
+          Write-Host "BepInEx distribution extracted"
+          Get-ChildItem -Path bepinex_dist -Recurse -Depth 1 | Select-Object FullName
+
+      - name: Package Release
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v') { $tag = "${{ inputs.version }}" }
+          $version = $tag -replace '^v', ''
+          
+          Write-Host "Packaging version $version"
+          
+          # Create release directory structure
+          $releaseDir = "MalumMenu-$tag-Steam-Itch"
+          $pluginsDir = "$releaseDir/BepInEx/plugins"
+          $patchersDir = "$releaseDir/BepInEx/patchers"
+          
+          New-Item -ItemType Directory -Force -Path $pluginsDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $patchersDir | Out-Null
+          
+          # Copy all BepInEx distribution files
+          Get-ChildItem -Path bepinex_dist -Recurse | ForEach-Object {
+            $srcPath = $_.FullName
+            $relPath = $srcPath.Substring((Resolve-Path bepinex_dist).Path.Length).TrimStart('\\', '/')
+            $destPath = Join-Path (Resolve-Path $releaseDir).Path $relPath
+            
+            if ($_.PSIsContainer) {
+              New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            } else {
+              $destDir = Split-Path -Parent $destPath
+              if (!(Test-Path $destDir)) { New-Item -ItemType Directory -Force -Path $destDir | Out-Null }
+              Copy-Item -Path $srcPath -Destination $destPath -Force
+            }
+          }
+          
+          # Copy our built DLL to plugins folder
+          $dllPath = "src/bin/Release/net6.0/MalumMenu.dll"
+          if (Test-Path $dllPath) {
+            Copy-Item -Path $dllPath -Destination $pluginsDir
+            Write-Host "Copied MalumMenu.dll to plugins"
+          } else {
+            # Try finding it in other possible locations
+            $foundDll = Get-ChildItem -Path src/bin -Recurse -Filter "MalumMenu.dll" | Select-Object -First 1
+            if ($foundDll) {
+              Copy-Item -Path $foundDll.FullName -Destination $pluginsDir
+              Write-Host "Copied MalumMenu.dll from $($foundDll.FullName) to plugins"
+            } else {
+              Write-Error "Could not find MalumMenu.dll in build output!"
+              exit 1
+            }
+          }
+          
+          # Add steam_appid.txt (Among Us Steam app ID)
+          Set-Content -Path "$releaseDir/steam_appid.txt" -Value "945360" -NoNewline
+          
+          # Ensure patchers directory exists (even if empty)
+          New-Item -ItemType Directory -Force -Path $patchersDir | Out-Null
+          # Create a .gitkeep in patchers so the empty folder is preserved in the zip
+          New-Item -ItemType File -Force -Path "$patchersDir/.gitkeep" | Out-Null
+          
+          # Create zip
+          Compress-Archive -Path $releaseDir -DestinationPath "MalumMenu-$tag-Steam-Itch.zip"
+          Write-Host "Created MalumMenu-$tag-Steam-Itch.zip"
+          
+          # List contents for verification
+          Write-Host "=== Release package contents ==="
+          Get-ChildItem -Path $releaseDir -Recurse | ForEach-Object {
+            $rel = $_.FullName.Substring((Resolve-Path $releaseDir).Path.Length).TrimStart('\\', '/')
+            if (!$_.PSIsContainer) {
+              Write-Host "  $rel ($($_.Length) bytes)"
+            }
+          }
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MalumMenu-Release
+          path: "*.zip"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+          generate_release_notes: true
+          body: |
+            ## MalumMenu ${{ github.ref_name }}
+            
+            ### 🤖 What's New in v3.2.0
+            - **AI Mode**: Groq-powered game analyst with real-time strategic suggestions
+            - AI reads meeting chat and suggests what to say
+            - Auto-copies suggested messages to clipboard for easy pasting
+            - Configurable Groq model selection (llama-3.3-70b-versatile, mixtral-8x7b-32768, etc.)
+            - Auto-analyze game state every 30 seconds
+            
+            ### Installation
+            1. Download `MalumMenu-${{ github.ref_name }}-Steam-Itch.zip`
+            2. Extract ALL files into your Among Us game folder
+            3. Launch the game — BepInEx will install automatically on first run
+            4. Press **DELETE** to toggle the cheat menu
+            5. Go to the **AI** tab, enter your Groq API key (free at https://console.groq.com/keys)
+            
+            ### Supported Platforms
+            - ✅ Steam
+            - ✅ Itch.io
+            - ✅ Epic Games Launcher
+            - ✅ Microsoft Store
+            - ✅ Xbox App
