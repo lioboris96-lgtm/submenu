@@ -20,7 +20,7 @@ namespace MalumMenu;
 public static class Utils
 {
     public static bool isPastingInput;
-    public static ReferenceDataManager ReferenceDataManager = DestroyableSingleton<ReferenceDataManager>.Instance; // Useful for getting full lists of all the Among Us cosmetics IDs
+    public static ReferenceDataManager ReferenceDataManager = DestroyableSingleton<ReferenceDataManager>.Instance; // Useful for getting full lists of all Among Us cosmetics IDs
     public static SabotageSystemType SabotageSystem => ShipStatus.Instance.Systems[SystemTypes.Sabotage].Cast<SabotageSystemType>();
     public static bool isShip => ShipStatus.Instance;
     public static bool isClient => AmongUsClient.Instance;
@@ -54,7 +54,7 @@ public static class Utils
             Mathf.Approximately(PlayerControl.LocalPlayer.MyPhysics.Speed, DefaultSpeed);
     }
 
-    // Snaps LocalPlayer's speed to the default if within snapRange
+    // Snaps LocalPlayer's speed to default if within snapRange
     public static void SnapSpeedToDefault(float snapRange, bool forGhost = false)
     {
         if (forGhost)
@@ -158,7 +158,7 @@ public static class Utils
         AmongUsClient.Instance.LateBroadcastUnreliableMessage(Unsafe.As<IGameDataMessage>(rpcMessage));
     }
 
-    // Coroutine to teleport the LocalPlayer to a position after a delay
+    // Coroutine to teleport LocalPlayer to a position after a delay
     public static System.Collections.IEnumerator DelayedSnapTo(Vector2 position, float delay = 0.25f)
     {
         yield return new WaitForSeconds(delay);
@@ -170,10 +170,8 @@ public static class Utils
     {
         if (isFreePlay)
         {
-
             PlayerControl.LocalPlayer.MurderPlayer(target, MurderResultFlags.Succeeded);
             return;
-
         }
 
         foreach (var item in PlayerControl.AllPlayerControls)
@@ -212,48 +210,18 @@ public static class Utils
         {
             DestroyableSingleton<HudManager>.Instance.Chat.chatScreen.SetActive(true);
             PlayerControl.LocalPlayer.NetTransform.Halt();
-            DestroyableSingleton<HudManager>.Instance.Chat.StartCoroutine(DestroyableSingleton<HudManager>.Instance.Chat.CoAnimateOpen());
+            DestroyableSingleton<HudManager>.Instance.Chat.StartCoroutine(DestroyableSingleton<HudManager>.Instance.Chat.CoOpen());
         }
     }
 
-    public static void CloseChat()
-    {
-        if (DestroyableSingleton<HudManager>.Instance.Chat.IsOpenOrOpening)
-        {
-            DestroyableSingleton<HudManager>.Instance.Chat.chatScreen.SetActive(false);
-        }
-    }
-
-    public static void ToggleChat()
-    {
-        if (DestroyableSingleton<HudManager>.Instance.Chat.IsOpenOrOpening)
-        {
-            CloseChat();
-        }
-        else
-        {
-            OpenChat();
-        }
-    }
-
-    public static void UpdateChat()
-    {
-        if (CheatToggles.enableChat)
-        {
-            if (!DestroyableSingleton<HudManager>.Instance.Chat.IsOpenOrOpening)
-            {
-                OpenChat();
-            }
-        }
-    }
-
+    // Gets current map ID
     public static int GetCurrentMapID()
     {
-        if (!isShip) return -1;
-
-        return ShipStatus.Instance.Type;
+        if (!ShipStatus.Instance) return 0;
+        return (int)ShipStatus.Instance.MapId;
     }
 
+    // Gets a player's role name
     public static string GetRoleName(NetworkedPlayerInfo playerData)
     {
         var translatedRole = DestroyableSingleton<TranslationController>.Instance.GetString(playerData.Role.StringName, Il2CppSystem.Array.Empty<Il2CppSystem.Object>());
@@ -263,7 +231,7 @@ public static class Utils
         return translatedRole;
     }
 
-    // Gets the appropriate nametag for a player
+    // Gets appropriate nametag for a player
     public static string GetNameTag(NetworkedPlayerInfo playerInfo, string playerName, bool isChat = false)
     {
         var nameTag = playerName;
@@ -276,7 +244,7 @@ public static class Utils
         var level = playerInfo.PlayerLevel + 1;
 
         var platform = "Unknown";
-        if (!isLocalGame) try { platform = PlatformTypeToString(player.PlatformData.Platform); } catch { }
+        if (!isLocalGame) try { platform = player.PlatformData.Platform.ToString(); } catch { }
 
         //var puid = player.ProductUserId;
         //var friendcode = player.FriendCode;
@@ -450,7 +418,7 @@ public static class Utils
         return null;
     }
 
-    // Opens the config file in the default text editor
+    // Opens config file in default text editor
     public static void OpenConfigFile()
     {
         var configFilePath = MalumMenu.Plugin.Config.ConfigFilePath;
@@ -497,7 +465,7 @@ public static class Utils
             go.AddComponent<PanicCleaner>();
         }
 
-        // Unpatching Harmony in handled in the next frame after creation
+        // Unpatching Harmony is handled in next frame after creation
         // This allows some patches to run for a last time and finish properly
         private void LateUpdate()
         {
