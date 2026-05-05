@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>System.Windows.Forms</ImplicitUsings>
+    <AssemblyTitle>MalumMenu Injector</AssemblyTitle>
+    <AssemblyDescription>Injects MalumMenu mod into Among Us</AssemblyDescription>
+    <AssemblyVersion>3.2.0.0</AssemblyVersion>
+    <FileVersion>3.2.0.0</FileVersion>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="7.0.3" />
+    <PackageReference Include="System.IO.Compression.ZipFile" Version="1.2.0" />
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="MalumMenuInjector.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="icon.ico" />
+    <None Include="app.manifest" />
+  </ItemGroup>
+
+</Project>
