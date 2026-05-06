@@ -196,7 +196,7 @@ public static class Utils
         {
             DestroyableSingleton<HudManager>.Instance.Chat.chatScreen.SetActive(true);
             PlayerControl.LocalPlayer.NetTransform.Halt();
-            DestroyableSingleton<HudManager>.Instance.Chat.StartCoroutine(DestroyableSingleton<HudManager>.Instance.Chat.CoOpen());
+            DestroyableSingleton<HudManager>.Instance.Chat.StartCoroutine(DestroyableSingleton<HudManager>.Instance.Chat.CoAnimateOpen());
         }
     }
 
@@ -204,7 +204,64 @@ public static class Utils
     public static int GetCurrentMapID()
     {
         if (!ShipStatus.Instance) return 0;
-        return (int)(ShipStatus.MapType)ShipStatus.Instance.MapId;
+        return (int)ShipStatus.Instance.MapId;
+    }
+
+    // Converts a Platforms enum value to a human-readable string
+    public static string PlatformTypeToString(Platforms platform)
+    {
+        return platform switch
+        {
+            Platforms.Standalone => "Standalone",
+            Platforms.Steam => "Steam",
+            Platforms.Itch => "Itch",
+            Platforms.Epic => "Epic",
+            Platforms.IOS => "iOS",
+            Platforms.Switch => "Switch",
+            Platforms.Android => "Android",
+            Platforms.Xbox => "Xbox",
+            Platforms.PS4 => "PS4",
+            Platforms.PS5 => "PS5",
+            _ => platform.ToString()
+        };
+    }
+
+    // Converts a string to a Platforms enum value
+    public static bool StringToPlatformType(string str, out Platforms? platformType)
+    {
+        platformType = null;
+        if (string.IsNullOrWhiteSpace(str)) return false;
+
+        try
+        {
+            platformType = (Platforms)Enum.Parse(typeof(Platforms), str, true);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Returns colored ping text based on ping value
+    public static string GetColoredPingText(string text, int ping)
+    {
+        if (ping < 50)
+        {
+            return $"<color=#0f0>{text}</color>"; // Green
+        }
+        else if (ping < 100)
+        {
+            return $"<color=#ff0>{text}</color>"; // Yellow
+        }
+        else if (ping < 200)
+        {
+            return $"<color=#f80>{text}</color>"; // Orange
+        }
+        else
+        {
+            return $"<color=#f00>{text}</color>"; // Red
+        }
     }
 
     public static string GetRoleName(NetworkedPlayerInfo playerData)
@@ -228,7 +285,7 @@ public static class Utils
         var level = playerInfo.PlayerLevel + 1;
 
         var platform = "Unknown";
-        if (!isLocalGame) try { platform = player.PlatformData.Platform.ToString(); } catch { }
+        if (!isLocalGame) try { platform = PlatformTypeToString(player.PlatformData.Platform); } catch { }
 
         var roleColor = ColorUtility.ToHtmlStringRGB(playerInfo.Role.TeamColor);
 
