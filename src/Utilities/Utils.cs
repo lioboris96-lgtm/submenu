@@ -20,7 +20,7 @@ namespace MalumMenu;
 public static class Utils
 {
     public static bool isPastingInput;
-    public static ReferenceDataManager ReferenceDataManager = DestroyableSingleton<ReferenceDataManager>.Instance; // Useful for getting full lists of all Among Us cosmetics IDs
+    public static ReferenceDataManager ReferenceDataManager = DestroyableSingleton<ReferenceDataManager>.Instance;
     public static SabotageSystemType SabotageSystem => ShipStatus.Instance.Systems[SystemTypes.Sabotage].Cast<SabotageSystemType>();
     public static bool isShip => ShipStatus.Instance;
     public static bool isClient => AmongUsClient.Instance;
@@ -47,14 +47,12 @@ public static class Utils
     public const float DefaultSpeed = 2.5f;
     public const float DefaultGhostSpeed = 3f;
 
-    // Checks if LocalPlayer's speed is at its default value
     public static bool IsSpeedDefault(bool forGhost = false)
     {
         return forGhost ? Mathf.Approximately(PlayerControl.LocalPlayer.MyPhysics.GhostSpeed, DefaultGhostSpeed) :
             Mathf.Approximately(PlayerControl.LocalPlayer.MyPhysics.Speed, DefaultSpeed);
     }
 
-    // Snaps LocalPlayer's speed to default if within snapRange
     public static void SnapSpeedToDefault(float snapRange, bool forGhost = false)
     {
         if (forGhost)
@@ -69,7 +67,6 @@ public static class Utils
         }
     }
 
-    // Gets a player's real name, display name, and whether they are disguised or not
     public static (string realName, string displayName, bool isDisguised) GetPlayerIdentity(PlayerControl player)
     {
         if (player == null || player.Data == null) return ("", "", false);
@@ -81,7 +78,6 @@ public static class Utils
         return (realName, displayName, isDisguised);
     }
 
-    // Checks if player is currently vanished
     public static bool IsVanished(NetworkedPlayerInfo playerInfo)
     {
         PhantomRole phantomRole = playerInfo.Role as PhantomRole;
@@ -94,7 +90,6 @@ public static class Utils
         return false;
     }
 
-    // Checks whether a player is a valid target depending on whether killAnyone cheat is enabled or not
     public static bool IsValidTarget(NetworkedPlayerInfo target)
     {
         var killAnyoneRequirements = target && !target.Disconnected && target.Object.Visible && target.PlayerId != PlayerControl.LocalPlayer.PlayerId && target.Role && target.Object;
@@ -118,20 +113,16 @@ public static class Utils
         return playerDataList;
     }
 
-    // Adjusts HUD resolution
-    // Used to fix UI problems when zooming out
     public static void AdjustResolution()
     {
         ResolutionManager.ResolutionChanged.Invoke((float)Screen.width / Screen.height, Screen.width, Screen.height, Screen.fullScreen);
     }
 
-    // Gets RoleBehaviour from a RoleType
     public static RoleBehaviour GetBehaviourByRoleType(RoleTypes roleType)
     {
         return RoleManager.Instance.AllRoles.ToArray().First(r => r.Role == roleType);
     }
 
-    // Gets RoleBehaviour from a TeamType
     public static RoleBehaviour GetBehaviourByTeamType(RoleTeamTypes roleTeamType)
     {
         RoleTypes roleType = (RoleTypes)Enum.Parse(typeof(RoleTypes), roleTeamType.ToString(), true);
@@ -150,22 +141,17 @@ public static class Utils
 
     public static void ForcePlayAnimation(byte animationType)
     {
-        // PlayerControl.LocalPlayer.RpcPlayAnimation(1) wouldn't work if visual tasks are turned off
-        // The below way makes sure it works regardless of visual task settings
-
         PlayerControl.LocalPlayer.PlayAnimation(animationType);
         RpcPlayAnimationMessage rpcMessage = new(PlayerControl.LocalPlayer.NetId, animationType);
         AmongUsClient.Instance.LateBroadcastUnreliableMessage(Unsafe.As<IGameDataMessage>(rpcMessage));
     }
 
-    // Coroutine to teleport LocalPlayer to a position after a delay
     public static System.Collections.IEnumerator DelayedSnapTo(Vector2 position, float delay = 0.25f)
     {
         yield return new WaitForSeconds(delay);
         PlayerControl.LocalPlayer.NetTransform.RpcSnapTo(position);
     }
 
-    // Kills any player using RPC calls
     public static void MurderPlayer(PlayerControl target, MurderResultFlags result)
     {
         if (isFreePlay)
@@ -218,10 +204,9 @@ public static class Utils
     public static int GetCurrentMapID()
     {
         if (!ShipStatus.Instance) return 0;
-        return (int)ShipStatus.Instance.MapId;
+        return (int)(ShipStatus.MapType)ShipStatus.Instance.MapId;
     }
 
-    // Gets a player's role name
     public static string GetRoleName(NetworkedPlayerInfo playerData)
     {
         var translatedRole = DestroyableSingleton<TranslationController>.Instance.GetString(playerData.Role.StringName, Il2CppSystem.Array.Empty<Il2CppSystem.Object>());
@@ -231,7 +216,6 @@ public static class Utils
         return translatedRole;
     }
 
-    // Gets appropriate nametag for a player
     public static string GetNameTag(NetworkedPlayerInfo playerInfo, string playerName, bool isChat = false)
     {
         var nameTag = playerName;
@@ -246,16 +230,12 @@ public static class Utils
         var platform = "Unknown";
         if (!isLocalGame) try { platform = player.PlatformData.Platform.ToString(); } catch { }
 
-        //var puid = player.ProductUserId;
-        //var friendcode = player.FriendCode;
-
         var roleColor = ColorUtility.ToHtmlStringRGB(playerInfo.Role.TeamColor);
 
         var hostString = player == host ? "Host - " : "";
 
         if (CheatToggles.seeRoles)
         {
-
             if (CheatToggles.seePlayerInfo)
             {
                 if (isChat)
@@ -317,7 +297,6 @@ public static class Utils
         return nameTag;
     }
 
-    // Returns a player's NetworkedPlayerInfo from their client ID
     public static NetworkedPlayerInfo GetPlayerDataFromClientId(int clientId)
     {
         var players = PlayerControl.AllPlayerControls.ToArray();
@@ -331,10 +310,9 @@ public static class Utils
 			}
 		}
 
-        return null; // Returns null if no matching player is found
+        return null;
     }
 
-    // Returns a random 1 - 12 characters long name
     public static string GetRandomName()
     {
         var length = UnityEngine.Random.Range(1, 13);
@@ -342,7 +320,6 @@ public static class Utils
         return new string(Enumerable.Repeat(chars, length).Select(s => s[UnityEngine.Random.Range(0, s.Length)]).ToArray());
     }
 
-    // Returns current AmongUsClient ping in ms
     public static int GetPing()
     {
         if (isClient && AmongUsClient.Instance.AmClient)
@@ -351,12 +328,10 @@ public static class Utils
         }
         else
         {
-            return 0; // Returns 0 if not connected to a game
+            return 0;
         }
     }
 
-    // Shows a custom popup ingame
-    // Found here: https://github.com/NuclearPowered/Reactor/blob/6eb0bf19c30733b78532dada41db068b2b247742/Reactor/Networking/Patches/HttpPatches.cs
     public static void ShowPopup(string text)
     {
         var popup = UnityEngine.Object.Instantiate(DiscordManager.Instance.discordPopup, Camera.main!.transform);
@@ -375,8 +350,6 @@ public static class Utils
         DestroyableSingleton<DisconnectPopup>.Instance.ShowCustom(text);
     }
 
-    // Loads sprites from manifest resources
-    // Found here: https://github.com/Loonie-Toons/TOHE-Restored/blob/TOHE/Modules/Utils.cs
     public static Dictionary<string, Sprite> CachedSprites = new();
     public static Sprite LoadSprite(string path, float pixelsPerUnit = 1f)
     {
@@ -397,8 +370,6 @@ public static class Utils
         return null;
     }
 
-    // Loads textures from manifest resources
-    // Found here: https://github.com/Loonie-Toons/TOHE-Restored/blob/TOHE/Modules/Utils.cs
     public static Texture2D LoadTextureFromResources(string path)
     {
         try
@@ -418,7 +389,6 @@ public static class Utils
         return null;
     }
 
-    // Opens config file in default text editor
     public static void OpenConfigFile()
     {
         var configFilePath = MalumMenu.Plugin.Config.ConfigFilePath;
@@ -435,7 +405,6 @@ public static class Utils
                         FileName = configEditor,
                         Arguments = configFilePath,
                         UseShellExecute = true
-                        //Verb = "edit"
                     });
                 }
                 catch (Exception ex)
@@ -456,7 +425,6 @@ public static class Utils
 
     public class PanicCleaner : MonoBehaviour
     {
-        // Creates a PanicCleaner to unpatch Harmony
         public static void Create()
         {
             ClassInjector.RegisterTypeInIl2Cpp<PanicCleaner>();
@@ -465,8 +433,6 @@ public static class Utils
             go.AddComponent<PanicCleaner>();
         }
 
-        // Unpatching Harmony is handled in next frame after creation
-        // This allows some patches to run for a last time and finish properly
         private void LateUpdate()
         {
             try { Harmony.UnpatchID(MalumMenu.Id); } catch { }
