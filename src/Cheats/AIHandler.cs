@@ -1,9 +1,9 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using AmongUs.GameOptions;
@@ -15,12 +15,12 @@ public static class AIHandler
     private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
     private static readonly List<ChatMessage> conversationHistory = new();
     private static readonly List<string> meetingChatLog = new();
-    private static bool isProcessing = false;
+    private static volatile bool isProcessing = false;
     private static string lastResponse = "";
     private static string lastSuggestion = "";
     private static string statusMessage = "AI Mode: Idle";
     private static float lastAutoAnalysisTime = 0f;
-    private static readonly float autoAnalysisInterval = 30f; // seconds between auto-analyses
+    private static readonly float autoAnalysisInterval = 30f;
 
     public static string StatusMessage => statusMessage;
     public static string LastResponse => lastResponse;
@@ -31,7 +31,7 @@ public static class AIHandler
 
     public class ChatMessage
     {
-        public string role; // "system", "user", "assistant"
+        public string role;
         public string content;
         public float timestamp;
 
@@ -132,7 +132,6 @@ public static class AIHandler
                 var disconnected = player.Data.Disconnected;
                 var inVent = player.inVent;
 
-                // Only show roles if seeRoles cheat is on or it's the local player
                 if (player == PlayerControl.LocalPlayer || CheatToggles.seeRoles)
                 {
                     sb.AppendLine($"  {name}: Role={role} ({team}), Alive={alive}, Disconnected={disconnected}, InVent={inVent}");
@@ -143,17 +142,34 @@ public static class AIHandler
                 }
             }
 
-            // Game options (only include available properties)
-            if (GameOptionsManager.Instance.CurrentGameOptions != null)
+            // Game options - use try/catch for each property since they vary by game mode
+            try
             {
-                var opts = GameOptionsManager.Instance.CurrentGameOptions;
-                sb.AppendLine();
-                sb.AppendLine($"Player Speed: {opts.PlayerSpeedMod}");
-                sb.AppendLine($"Kill Cooldown: {opts.KillCooldown}");
-                sb.AppendLine($"Emergency Cooldown: {opts.EmergencyCooldown}");
-                sb.AppendLine($"# Impostors: {opts.NumImpostors}");
-                // Skip task counts as they don't exist in this version
+                if (GameOptionsManager.Instance.CurrentGameOptions != null)
+                {
+                    var opts = GameOptionsManager.Instance.CurrentGameOptions;
+                    sb.AppendLine();
+                    sb.AppendLine($"Game Mode Type: {opts.GameMode}");
+                    sb.AppendLine($"# Impostors: {opts.NumImpostors}");
+
+                    // Try to get NormalGameOptions-specific properties
+                    try
+                    {
+                        var normalOpts = opts.Cast<NormalGameOptions>();
+                        if (normalOpts != null)
+                        {
+                            sb.AppendLine($"Player Speed: {normalOpts.PlayerSpeedMod}");
+                            sb.AppendLine($"Kill Cooldown: {normalOpts.KillCooldown}");
+                            sb.AppendLine($"Emergency Cooldown: {normalOpts.EmergencyCooldown}");
+                            sb.AppendLine($"# Common Tasks: {normalOpts.NumCommonTasks}");
+                            sb.AppendLine($"# Long Tasks: {normalOpts.NumLongTasks}");
+                            sb.AppendLine($"# Short Tasks: {normalOpts.NumShortTasks}");
+                        }
+                    }
+                    catch { /* Not NormalGameOptions, skip */ }
+                }
             }
+            catch { /* Game options not available */ }
 
             // Sabotage state
             if (Utils.isShip)
@@ -162,7 +178,7 @@ public static class AIHandler
                 sb.AppendLine($"Sabotage Active: {Utils.isAnySabotageActive}");
             }
 
-            // Active cheats that affect gameplay
+            // Active cheats
             sb.AppendLine();
             sb.AppendLine("Active Cheats:");
             if (CheatToggles.noClip) sb.AppendLine("  NoClip");
@@ -212,10 +228,8 @@ public static class AIHandler
         isProcessing = true;
         statusMessage = "AI Mode: Thinking...";
 
-        // Build system prompt with current game state
         string systemPrompt = BuildSystemPrompt();
 
-        // Add user message or default analysis request
         if (!string.IsNullOrWhiteSpace(userMessage))
         {
             conversationHistory.Add(new ChatMessage("user", userMessage));
@@ -225,8 +239,20 @@ public static class AIHandler
             conversationHistory.Add(new ChatMessage("user", "Analyze the current game situation and give me strategic advice. What should I do next?"));
         }
 
-        // Start async API call
-        MalumMenu.Plugin.StartCoroutine(SendGroqRequest(apiKey, systemPrompt));
+        // Run API call on background thread to avoid blocking game
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                SendGroqRequestSync(apiKey, systemPrompt);
+            }
+            catch (Exception ex)
+            {
+                lastResponse = $"Error: {ex.Message}";
+                statusMessage = "AI Mode: Error";
+                isProcessing = false;
+            }
+        });
     }
 
     public static void AutoAnalysis()
@@ -240,7 +266,7 @@ public static class AIHandler
         SendAnalysisRequest("Quick update: What's the current situation? Any new suggestions?");
     }
 
-    private static IEnumerator SendGroqRequest(string apiKey, string systemPrompt)
+    private static void SendGroqRequestSync(string apiKey, string systemPrompt)
     {
         var model = MalumMenu.aiModel.Value;
         if (string.IsNullOrWhiteSpace(model)) model = "llama-3.3-70b-versatile";
@@ -249,7 +275,6 @@ public static class AIHandler
         var messagesArray = new StringBuilder();
         messagesArray.Append($"{{\"role\":\"system\",\"content\":{EscapeJson(systemPrompt)}}}");
 
-        // Include last N messages from conversation to keep context manageable
         int maxHistory = 10;
         int startIndex = Mathf.Max(0, conversationHistory.Count - maxHistory);
         for (int i = startIndex; i < conversationHistory.Count; i++)
@@ -260,16 +285,16 @@ public static class AIHandler
 
         string payload = $"{{\"model\":\"{model}\",\"messages\":[{messagesArray}],\"max_tokens\":512,\"temperature\":0.7}}";
 
-        using var client = new HttpClient()
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
-
         try
         {
-            var response = client.PostAsync(GROQ_API_URL, new StringContent(payload, Encoding.UTF8, "application/json")).Result;
+            var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var response = client.PostAsync(GROQ_API_URL, content).Result;
             response.EnsureSuccessStatusCode();
-            
+
             string responseText = response.Content.ReadAsStringAsync().Result;
             string aiContent = ParseGroqResponse(responseText);
 
@@ -279,7 +304,6 @@ public static class AIHandler
                 conversationHistory.Add(new ChatMessage("assistant", aiContent));
                 statusMessage = "AI Mode: Ready";
 
-                // Extract SAY: suggestions for clipboard
                 string suggestion = ExtractSuggestion(aiContent);
                 if (!string.IsNullOrEmpty(suggestion))
                 {
@@ -295,6 +319,8 @@ public static class AIHandler
                 lastResponse = "(No response from AI)";
                 statusMessage = "AI Mode: Empty response";
             }
+
+            client.Dispose();
         }
         catch (Exception ex)
         {
@@ -307,8 +333,6 @@ public static class AIHandler
         {
             isProcessing = false;
         }
-
-        yield break;
     }
 
     private static string EscapeJson(string text)
@@ -343,35 +367,27 @@ public static class AIHandler
     {
         try
         {
-            // Simple JSON parsing without dependency - find "content" field in choices
-            // Format: {"choices":[{"message":{"content":"..."}}]}
             int choicesIdx = jsonResponse.IndexOf("\"choices\"");
             if (choicesIdx < 0) return null;
 
             int contentIdx = jsonResponse.IndexOf("\"content\"", choicesIdx);
             if (contentIdx < 0) return null;
 
-            // Find the colon after "content"
             int colonIdx = jsonResponse.IndexOf(':', contentIdx);
             if (colonIdx < 0) return null;
 
-            // Find the opening quote
             int openQuote = jsonResponse.IndexOf('"', colonIdx + 1);
             if (openQuote < 0) return null;
 
-            // Find the closing quote (handle escaped quotes)
             int i = openQuote + 1;
             while (i < jsonResponse.Length)
             {
                 if (jsonResponse[i] == '\\' && i + 1 < jsonResponse.Length)
                 {
-                    i += 2; // Skip escaped character
+                    i += 2;
                     continue;
                 }
-                if (jsonResponse[i] == '"')
-                {
-                    break;
-                }
+                if (jsonResponse[i] == '"') break;
                 i++;
             }
 
@@ -379,7 +395,6 @@ public static class AIHandler
 
             string rawContent = jsonResponse.Substring(openQuote + 1, i - openQuote - 1);
 
-            // Unescape JSON string
             rawContent = rawContent.Replace("\\n", "\n")
                                    .Replace("\\\"", "\"")
                                    .Replace("\\\\", "\\")
@@ -397,7 +412,6 @@ public static class AIHandler
 
     private static string ExtractSuggestion(string aiResponse)
     {
-        // Look for SAY: "message" pattern
         int sayIdx = aiResponse.IndexOf("SAY:");
         if (sayIdx < 0) return null;
 
